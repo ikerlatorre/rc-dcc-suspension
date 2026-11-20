@@ -9,7 +9,7 @@ Este repositorio contiene el firmware y las especificaciones de arquitectura par
 ## 2. Arquitectura Distribuida (Dos Nodos)
 
 ### Nodo 1 (`Nodo1_CocheRC`) — Unidad Embarcada en el Vehículo RC
-- **Microcontrolador:** ESP32 DevKit V1.
+- **Microcontrolador:** ESP32-WROOM-32 (DevKit V1).
 - **Alimentación y Distribución de Potencia:**
   - Batería principal del chasis: **9.6 V NiMH / LiFe**.
   - El ESP32 se alimenta **exclusivamente desde la salida BEC de 5 V** integrada en el ESC LRP AI Runner Reverse V2.09 (conectada al pin `VIN` / `5V` del ESP32).
@@ -30,7 +30,7 @@ Este repositorio contiene el firmware y las especificaciones de arquitectura par
 ---
 
 ### Nodo 2 (`Nodo2_BancoDCC`) — Banco Exterior de Suspensión Semiactiva VW DCC
-- **Microcontrolador:** ESP32 DevKit V1.
+- **Microcontrolador:** ESP32-WROOM-32 (DevKit V1).
 - **Comunicación Inalámbrica:**
   - Recepción de paquetes de telemetría (`TelemetryPacket` / `struct_message`) vía **ESP-NOW** desde el Nodo 1.
 - **Etapa de Potencia para Amortiguador Real VW DCC:**
