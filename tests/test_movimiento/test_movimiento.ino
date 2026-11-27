@@ -1,115 +1,86 @@
-/**
- * @file test_movimiento.ino
- * @brief Prueba rápida y segura de movimiento (tracción ESC + dirección L298N) para Nodo 1.
- *
- * INSTRUCCIONES DE SEGURIDAD:
- *  1. Coloca el coche con las RUEDAS EN EL AIRE (sobre un soporte).
- *  2. Alimenta el ESP32-WROOM-32 desde el BEC 5V del ESC (o por USB con GND común).
- *     NUNCA conectes los 9.6V directos al ESP32.
- *  3. La secuencia se ejecuta UNA SOLA VEZ al arrancar y luego queda en neutro/reposo.
+/*
+ * Prueba rápida y sencilla de movimiento (Ruedas en el aire)
+ * Pines oficiales según AGENTS.md:
+ *   - ESC (Tracción): GPIO 18
+ *   - L298N (Dirección): ENA = 25, IN1 = 26, IN2 = 27
  */
 
-#include <Arduino.h>
+// 1. Pines con #define (fácil de leer y cambiar)
+#define PIN_ESC       18
+#define PIN_STEER_ENA 25
+#define PIN_STEER_IN1 26
+#define PIN_STEER_IN2 27
 
-// Pines oficiales según AGENTS.md
-constexpr uint8_t PIN_ESC_PWM   = 18;
-constexpr uint8_t PIN_STEER_ENA = 25;
-constexpr uint8_t PIN_STEER_IN1 = 26;
-constexpr uint8_t PIN_STEER_IN2 = 27;
+// 2. Velocidades del coche (en microsegundos)
+#define NEUTRO        1500  // Coche quieto
+#define ADELANTE      1620  // Avance suave
+#define ATRAS         1380  // Marcha atrás suave
 
-// Parámetros ESC LRP (50 Hz, resolución 16 bits -> 0..65535)
-constexpr uint32_t ESC_FREQ_HZ   = 50;
-constexpr uint8_t  ESC_RES_BITS  = 16;
-constexpr uint16_t PULSE_NEUTRAL = 1500;
-constexpr uint16_t PULSE_FWD     = 1620; // Avance suave
-constexpr uint16_t PULSE_REV     = 1380; // Marcha atrás suave
+// 3. Fuerza y tiempo de giro (protegido para no forzar topes)
+#define FUERZA_GIRO   160   // De 0 a 255
+#define TIEMPO_GIRO   350   // Milisegundos
 
-// Parámetros dirección L298N (protección contra topes)
-constexpr uint8_t  STEER_TEST_PWM = 160; // ~62% duty cycle
-constexpr uint32_t STEER_PULSE_MS = 350; // Pulso corto para no forzar topes
-
-void setEscPulseUs(uint16_t pulseUs) {
-    uint32_t duty = (static_cast<uint32_t>(pulseUs) * 65535UL) / 20000UL;
-#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
-    ledcWrite(PIN_ESC_PWM, duty);
-#else
-    ledcWrite(0, duty);
-#endif
+// Envía pulsos de 50 Hz al ESC durante "segundos * 50" veces
+void moverTraccion(int pulso_us, int repeticiones) {
+  for (int i = 0; i < repeticiones; i++) {
+    digitalWrite(PIN_ESC, HIGH);
+    delayMicroseconds(pulso_us);
+    digitalWrite(PIN_ESC, LOW);
+    delay(18); // Pausa de ~20 ms entre pulsos (50 Hz)
+  }
 }
 
-void steerStop() {
-    analogWrite(PIN_STEER_ENA, 0);
-    digitalWrite(PIN_STEER_IN1, LOW);
-    digitalWrite(PIN_STEER_IN2, LOW);
-}
-
-void steerLeft(uint8_t pwm) {
-    digitalWrite(PIN_STEER_IN1, HIGH);
-    digitalWrite(PIN_STEER_IN2, LOW);
-    analogWrite(PIN_STEER_ENA, pwm);
-}
-
-void steerRight(uint8_t pwm) {
-    digitalWrite(PIN_STEER_IN1, LOW);
-    digitalWrite(PIN_STEER_IN2, HIGH);
-    analogWrite(PIN_STEER_ENA, pwm);
+void pararDireccion() {
+  analogWrite(PIN_STEER_ENA, 0);
+  digitalWrite(PIN_STEER_IN1, LOW);
+  digitalWrite(PIN_STEER_IN2, LOW);
 }
 
 void setup() {
-    Serial.begin(115200);
-    delay(300);
-    Serial.println(F("\n=== TEST RAPIDO DE MOVIMIENTO (RUEDAS EN EL AIRE) ==="));
+  Serial.begin(115200);
+  Serial.println("\n=== INICIANDO PRUEBA DEL COCHE ===");
 
-    // Configurar dirección
-    pinMode(PIN_STEER_ENA, OUTPUT);
-    pinMode(PIN_STEER_IN1, OUTPUT);
-    pinMode(PIN_STEER_IN2, OUTPUT);
-    steerStop();
+  pinMode(PIN_ESC, OUTPUT);
+  pinMode(PIN_STEER_ENA, OUTPUT);
+  pinMode(PIN_STEER_IN1, OUTPUT);
+  pinMode(PIN_STEER_IN2, OUTPUT);
+  pararDireccion();
 
-    // Configurar PWM 50 Hz para ESC
-#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
-    ledcAttach(PIN_ESC_PWM, ESC_FREQ_HZ, ESC_RES_BITS);
-#else
-    ledcSetup(0, ESC_FREQ_HZ, ESC_RES_BITS);
-    ledcAttachPin(PIN_ESC_PWM, 0);
-#endif
+  // PASO 1: Armar el ESC (2.5 segundos en neutro = 125 pulsos)
+  Serial.println("1. Armando ESC (neutro)...");
+  moverTraccion(NEUTRO, 125);
 
-    // 1. Armar ESC en neutro (obligatorio)
-    Serial.println(F("[1/5] Armando ESC en neutro (1500 us) durante 2.5 s..."));
-    setEscPulseUs(PULSE_NEUTRAL);
-    delay(2500);
+  // PASO 2: Girar a la izquierda
+  Serial.println("2. Girando IZQUIERDA...");
+  digitalWrite(PIN_STEER_IN1, HIGH);
+  digitalWrite(PIN_STEER_IN2, LOW);
+  analogWrite(PIN_STEER_ENA, FUERZA_GIRO);
+  delay(TIEMPO_GIRO);
+  pararDireccion();
+  delay(500);
 
-    // 2. Probar dirección izquierda
-    Serial.println(F("[2/5] Direccion IZQUIERDA (350 ms)..."));
-    steerLeft(STEER_TEST_PWM);
-    delay(STEER_PULSE_MS);
-    steerStop();
-    delay(500);
+  // PASO 3: Girar a la derecha
+  Serial.println("3. Girando DERECHA...");
+  digitalWrite(PIN_STEER_IN1, LOW);
+  digitalWrite(PIN_STEER_IN2, HIGH);
+  analogWrite(PIN_STEER_ENA, FUERZA_GIRO);
+  delay(TIEMPO_GIRO);
+  pararDireccion();
+  delay(500);
 
-    // 3. Probar dirección derecha
-    Serial.println(F("[3/5] Direccion DERECHA (350 ms)..."));
-    steerRight(STEER_TEST_PWM);
-    delay(STEER_PULSE_MS);
-    steerStop();
-    delay(500);
+  // PASO 4: Avanzar 1 segundo (50 pulsos) y volver a neutro
+  Serial.println("4. Avanzando...");
+  moverTraccion(ADELANTE, 50);
+  moverTraccion(NEUTRO, 50);
 
-    // 4. Probar tracción hacia adelante
-    Serial.println(F("[4/5] Traccion ADELANTE suave (1620 us, 1 s)..."));
-    setEscPulseUs(PULSE_FWD);
-    delay(1000);
-    setEscPulseUs(PULSE_NEUTRAL);
-    delay(1000);
+  // PASO 5: Marcha atrás 1 segundo (50 pulsos) y volver a neutro
+  Serial.println("5. Marcha atras...");
+  moverTraccion(ATRAS, 50);
+  moverTraccion(NEUTRO, 50);
 
-    // 5. Probar marcha atrás
-    Serial.println(F("[5/5] Traccion ATRAS suave (1380 us, 1 s)..."));
-    setEscPulseUs(PULSE_REV);
-    delay(1000);
-    setEscPulseUs(PULSE_NEUTRAL);
-
-    Serial.println(F("=== TEST FINALIZADO (Motor en neutro, direccion parada) ==="));
+  Serial.println("=== PRUEBA TERMINADA ===");
 }
 
 void loop() {
-    // Reposo seguro; pulsa el botón EN/RST del ESP32 para repetir el test.
-    delay(1000);
+  // No hace nada más. Pulsa el botón RST del ESP32 para repetir.
 }
