@@ -30,7 +30,8 @@
 // 3. Velocidades del coche (en microsegundos, rango 1000-2000 us)
 #define NEUTRO        1500  // Coche quieto / armado obligatorio
 #define ADELANTE      1620  // Avance suave
-#define ATRAS         1380  // Marcha atrás suave
+#define FRENO         1350  // Primer toque atrás: activa freno y desbloquea reversa
+#define ATRAS         1250  // Segundo toque atrás: marcha atrás suave (supera zona muerta)
 
 // 4. Fuerza y tiempo de giro (protegido para no forzar topes mecánicos)
 #define FUERZA_GIRO   160   // De 0 a 255 (< 200 límite seguro en IN1/IN2)
@@ -38,13 +39,9 @@
 
 // Configura el periférico LEDC para enviar pulsos continuos de 50 Hz al ESC
 void configurarESC() {
-#if defined(ESP_ARDUINO_VERSION) && ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
   ledcAttach(PIN_ESC, ESC_FREQ_HZ, ESC_RES_BITS);
   Serial.println("\n=== Version 3 ===");
-#else
-  ledcSetup(ESC_LEDC_CH, ESC_FREQ_HZ, ESC_RES_BITS);
-  ledcAttachPin(PIN_ESC, ESC_LEDC_CH);
-#endif
+
 }
 
 // Actualiza el ancho de pulso del ESC (1000-2000 us) mantenido de forma continua
@@ -113,11 +110,15 @@ void setup() {
   fijarESC(NEUTRO);
   delay(1000);
 
-  // PASO 5: Marcha atrás con doble toque suave (liberar freno -> neutro -> reversa)
-  Serial.println("5. Marcha atras suave (doble toque LRP)...");
-  fijarESC(ATRAS);
-  delay(1000);
-  fijarESC(NEUTRO);
+  // PASO 5: Marcha atrás con doble toque (Freno -> Neutro -> Reversa)
+  Serial.println("5. Marcha atras suave (doble toque LRP: freno -> neutro -> atras)...");
+  fijarESC(FRENO);    // Primer toque atrás: frena y arma la marcha atrás
+  delay(350);
+  fijarESC(NEUTRO);   // Pausa obligatoria en neutro
+  delay(350);
+  fijarESC(ATRAS);    // Segundo toque atrás: ahora sí gira en reversa
+  delay(2000);
+  fijarESC(NEUTRO);   // Volver a neutro
   delay(1000);
 
   Serial.println("=== PRUEBA TERMINADA (ESC en neutro seguro, direccion parada) ===");
