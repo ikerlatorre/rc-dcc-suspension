@@ -40,6 +40,7 @@
 void configurarESC() {
 #if defined(ESP_ARDUINO_VERSION) && ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
   ledcAttach(PIN_ESC, ESC_FREQ_HZ, ESC_RES_BITS);
+  Serial.println("\n=== Version 3 ===");
 #else
   ledcSetup(ESC_LEDC_CH, ESC_FREQ_HZ, ESC_RES_BITS);
   ledcAttachPin(PIN_ESC, ESC_LEDC_CH);
@@ -115,12 +116,9 @@ void setup() {
   // PASO 5: Marcha atrás con doble toque suave (liberar freno -> neutro -> reversa)
   Serial.println("5. Marcha atras suave (doble toque LRP)...");
   fijarESC(ATRAS);
-  delay(250);
-  fijarESC(NEUTRO);
-  delay(250);
-  fijarESC(ATRAS);
   delay(1000);
   fijarESC(NEUTRO);
+  delay(1000);
 
   Serial.println("=== PRUEBA TERMINADA (ESC en neutro seguro, direccion parada) ===");
 }
